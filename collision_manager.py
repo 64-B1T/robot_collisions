@@ -110,7 +110,7 @@ class ColliderManager:
         for combo in combos:
             if combo[0].manager.in_collision_other(combo[1].manager):
                 return True, (combo[0].name, combo[1].name)
-        return False
+        return False, None
 
 class ColliderObject:
     """
@@ -228,7 +228,13 @@ class ColliderArm(ColliderObject):
         self.old_transforms = []
         self.populateSerialArm()
         self.ignore_connected_links = True
+        self.ignore_ee = False
 
+    def deleteEE(self):
+        """
+        Delete the end effector to more effectively remove it from collision checking
+        """
+        self.manager.remove_object(self.arm.link_names[-1])
 
     def populateSerialArm(self):
         """
@@ -274,12 +280,16 @@ class ColliderArm(ColliderObject):
         for name_tup in names:
             first = name_tup[0]
             second = name_tup[1]
+            if self.ignore_ee:
+                if first == self.arm.link_names[-1] or second == self.arm.link_names[-1]:
+                    continue
             link_index = self.arm.link_names.index(first)
             if link_index > 0 and self.arm.link_names[link_index - 1] == second:
                 continue
             elif link_index < self.num_links - 1 and self.arm.link_names[link_index + 1] == second:
                 continue
             else:
+                #print(names)
                 return True
         return False
 
