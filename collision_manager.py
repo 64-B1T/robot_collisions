@@ -259,9 +259,6 @@ class ColliderArm(ColliderObject):
         joint_transforms = self.arm.getJointTransforms()
         for i in range(self.num_links):
             self.manager.set_transform(self.arm.link_names[i], joint_transforms[i].gTM())
-            self.meshes[self.arm.link_names[i]].apply_transform(self.old_transforms[i].inv().gTM())
-            self.meshes[self.arm.link_names[i]].apply_transform(joint_transforms[i].gTM())
-            self.old_transforms[i] = joint_transforms[i]
 
     def checkInternalCollisions(self):
         """
@@ -287,6 +284,16 @@ class ColliderArm(ColliderObject):
         return False
 
     def drawArmMeshes(self, ax):
+        """
+        Draw Arm Meshes (and update backup, displayable meshes)
+        Args:
+            ax: matplotlib axis object to draw to
+        """
+        joint_transforms = self.arm.getJointTransforms()
+        for i in range(self.num_links):
+            self.meshes[self.arm.link_names[i]].apply_transform(self.old_transforms[i].inv().gTM())
+            self.meshes[self.arm.link_names[i]].apply_transform(joint_transforms[i].gTM())
+            self.old_transforms[i] = joint_transforms[i]
         for item in self.meshes:
             drawMesh(self.meshes[item], ax)
 
