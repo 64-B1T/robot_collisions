@@ -1,8 +1,10 @@
 import trimesh
 from trimesh.collision import CollisionManager
-from faser_math import tm
+from faser_math import tm, fsr
 from faser_robot_kinematics import Arm
+from faser_plotting.Draw.Draw import drawMesh
 from itertools import combinations
+import numpy as np
 
 def createBox(position, dims):
     """Creates a trimesh representation of a box
@@ -62,6 +64,7 @@ def createMesh(position, file_name, type='stl'):
         trimesh.Trimesh: new trimesh mesh
 
     """
+    print(file_name)
     new_mesh = trimesh.load(file_name, type = type)
     new_mesh.apply_transform(position.gTM())
     return new_mesh
@@ -120,6 +123,7 @@ class ColliderObject:
         super_manager: reference to the ColliderManager if there is one
         manager: trimesh manager of this particular group
         name: name of this instance
+        meshes: dict containing name-mesh pairs
 
     """
     def __init__(self, name='newCollider'):
@@ -132,6 +136,7 @@ class ColliderObject:
         self.name = name
         self.super_manager = None
         self.manager = CollisionManager()
+        self.meshes = {}
 
     def bindManager(self, super_manager):
         """
@@ -145,6 +150,10 @@ class ColliderObject:
     def update(self):
         """Handle for update, may not do anything for all subclasses"""
         pass
+
+    def addMesh(self, name, object):
+        self.manager.add_object(name, object)
+        self.meshes[name] = object
 
     def checkExternalCollisions(self):
         """
@@ -164,7 +173,7 @@ class ColliderObject:
                     collide_bool, collide_names = self.manager.in_collision_other(
                             other_manager, return_names = True)
                     if collide_bool:
-                        ciolliding = True
+                        colliding = True
                     names.extend(list(collide_names))
         return colliding, names
 
@@ -177,7 +186,7 @@ class ColliderObject:
             bool: whether or not there are collisions
 
         """
-        return self.manager.is_collision_internal()
+        return self.manager.in_collision_internal()
 
     def checkAllCollisions(self):
         """
@@ -216,30 +225,32 @@ class ColliderArm(ColliderObject):
         self.arm = arm
         self.name = name
         self.num_links = len(self.arm.link_names)
+        self.old_transforms = []
         self.populateSerialArm()
         self.ignore_connected_links = True
+
 
     def populateSerialArm(self):
         """
         populateColliderObject with serial arm properties
         """
         props = self.arm.col_props
-        joint_transforms = self.arn.getJointTransforms()
         if props is None:
             props = self.arm.vis_props
         for i in range(len(props)):
             link_name = self.arm.link_names[i]
             p = props[i]
-            j = joint_transforms[i]
+            self.old_transforms.append(tm())
             if p[0] == 'box':
-                new_obj = createBox(j, p)
+                new_obj = createBox(tm(), p[2])
             elif p[0] == 'cyl':
-                new_obj = createCylinder(j, p[0], p[1])
+                new_obj = createCylinder(tm(), p[2][0], p[2][1])
             elif p[0] == 'spr':
-                new_obj = createSphere(j, p)
+                new_obj = createSphere(tm(), p[2])
             elif p[0] == 'msh':
-                new_obj = createMesh(j, p)
-            self.manager.add_object(link_name, new_obj)
+                new_obj = createMesh(tm(), p[2][0])
+            self.addMesh(link_name, new_obj)
+        self.update()
 
     def update(self):
         """
@@ -247,7 +258,10 @@ class ColliderArm(ColliderObject):
         """
         joint_transforms = self.arm.getJointTransforms()
         for i in range(self.num_links):
-            self.manager.set_transform(self.arm.link_names[i], joint_transforms[i])
+            self.manager.set_transform(self.arm.link_names[i], joint_transforms[i].gTM())
+            self.meshes[self.arm.link_names[i]].apply_transform(self.old_transforms[i].inv().gTM())
+            self.meshes[self.arm.link_names[i]].apply_transform(joint_transforms[i].gTM())
+            self.old_transforms[i] = joint_transforms[i]
 
     def checkInternalCollisions(self):
         """
@@ -256,7 +270,7 @@ class ColliderArm(ColliderObject):
         Returns:
             bool: whether or not there's a countable internal collision
         """
-        colliding, names = self.manager.is_collision_internal(trurn_names=True)
+        colliding, names = self.manager.in_collision_internal(return_names=True)
         if not colliding or not self.ignore_connected_links:
             return colliding
         # Here we assume *something* is in collision, we just need to know what exactly
@@ -272,6 +286,9 @@ class ColliderArm(ColliderObject):
                 return True
         return False
 
+    def drawArmMeshes(self, ax):
+        for item in self.meshes:
+            drawMesh(self.meshes[item], ax)
 
 class ColliderSP(ColliderObject):
     """
@@ -318,13 +335,3 @@ class ColliderObstacles(ColliderObject):
 
         """
         self.manager.set_transform(name, position.gTM())
-
-    def add(self, name, mesh):
-        """
-        Add a mesh to the obstacles group
-
-        Args:
-            name: name of the mesh
-            mesh: trimesh mesh describing the mesh to add
-        """
-        self.manager.add_object(name, mesh)
