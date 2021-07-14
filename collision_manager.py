@@ -64,7 +64,6 @@ def createMesh(position, file_name, type='stl'):
         trimesh.Trimesh: new trimesh mesh
 
     """
-    print(file_name)
     new_mesh = trimesh.load(file_name, type = type)
     new_mesh.apply_transform(position.gTM())
     return new_mesh
@@ -289,7 +288,6 @@ class ColliderArm(ColliderObject):
             elif link_index < self.num_links - 1 and self.arm.link_names[link_index + 1] == second:
                 continue
             else:
-                #print(names)
                 return True
         return False
 
@@ -301,6 +299,12 @@ class ColliderArm(ColliderObject):
         """
         joint_transforms = self.arm.getJointTransforms()
         for i in range(self.num_links):
+            #Due to a limitation in trimesh.mesh, it is not possible to directly set the transform
+            #So to apply a global transform, one must undo the previous transform, and then apply
+            #The next one in sequence. For whatever reason old.inv @ new didn't work, so the two
+            #step process is what is being used for now.
+            #This is only called during the draw function, so it is not resource intensive
+            #while in normal use.
             self.meshes[self.arm.link_names[i]].apply_transform(self.old_transforms[i].inv().gTM())
             self.meshes[self.arm.link_names[i]].apply_transform(joint_transforms[i].gTM())
             self.old_transforms[i] = joint_transforms[i]
