@@ -105,7 +105,7 @@ class ColliderManager:
             names: tuple containing first colliding set names
 
         """
-        combos = list(combinations(self.collsion_objects, 2))
+        combos = list(combinations(self.collision_objects, 2))
         for combo in combos:
             if combo[0].manager.in_collision_other(combo[1].manager):
                 return True, (combo[0].name, combo[1].name)
@@ -234,6 +234,7 @@ class ColliderArm(ColliderObject):
         Delete the end effector to more effectively remove it from collision checking
         """
         self.manager.remove_object(self.arm.link_names[-1])
+        self.num_links = self.num_links - 1
 
     def populateSerialArm(self):
         """
