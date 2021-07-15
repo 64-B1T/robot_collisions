@@ -233,7 +233,7 @@ class ColliderArm(ColliderObject):
         """
         Delete the end effector to more effectively remove it from collision checking
         """
-        self.manager.remove_object(self.arm.link_names[-1])
+        self.manager.remove_object(self.arm.link_names[self.num_links - 1])
         self.num_links = self.num_links - 1
 
     def populateSerialArm(self):
